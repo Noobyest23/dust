@@ -1,0 +1,29 @@
+[package]
+name = "dust"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rand = "0.8"
+eframe = { version = "0.34.1", features = ["glow"] }
+strum = "0.26"
+strum_macros = "0.26"
+log = "0.4.29"
+web-time = "1.1.0"
+image = "0.25.10"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+getrandom = { version = "0.2", features = ["js"] }
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Storage",
+    "console",
+    "CanvasRenderingContext2d",
+    "Document",
+    "Element",
+    "HtmlAnchorElement",
+    "HtmlCanvasElement",
+    "ImageData",
+] }

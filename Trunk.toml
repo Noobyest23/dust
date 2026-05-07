@@ -1,0 +1,5 @@
+[build]
+# This prevents the "sha384" hash mismatch error on itch.io
+hash_algorithms = []
+filehash = false
+public_url = "./"
