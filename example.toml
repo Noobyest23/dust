@@ -1,0 +1,8 @@
+name = "Copper Wire"
+color = [184, 115, 51, 255]
+density = 45
+conductivity = 5.0
+movement_type = "static"
+base_temp = 20.0
+flammability = 0.0
+corrosive_resistance = 0.8

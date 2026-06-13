@@ -1,5 +1,7 @@
 mod world;
 use std::cmp::min;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path;
 
 use strum::{EnumCount, IntoEnumIterator};
 use world::{World};
@@ -10,6 +12,14 @@ use eframe::egui::{Color32, ColorImage, TextureOptions};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
+
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::world::mods::{ModLoader, generate_example_mods};
+
+
+
+
 
 
 #[cfg(target_arch = "wasm32")]
@@ -44,6 +54,14 @@ impl Power {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+enum ViewMode {
+    Normal,
+    Temperature,
+    Charge,
+    TimeEffect,
+    Force,
+}
 
 struct DustApp {
     world: World,
@@ -62,6 +80,7 @@ struct DustApp {
     game_speed: i8,
 	discovery_timer: f32,          
     last_discovered: Option<Element>,
+    view_mode: ViewMode,
 }
 
 impl DustApp {
@@ -88,6 +107,7 @@ impl DustApp {
             game_speed: 2,
 			discovery_timer: 0.0,
 			last_discovered: None,
+            view_mode: ViewMode::Normal,
         }
     }
 
@@ -105,18 +125,11 @@ impl DustApp {
                     
                     base
                 } else {
-                    noise_color(base, shade, elem as u32)
+                    noise_color(base, shade, elem.to_u32())
                 };
 
                 let mut final_color =
                     Color32::from_rgba_unmultiplied(color[0], color[1], color[2], color[3]);
-
-				
-
-                
-                
-                
-
                 
                 let temp = self.world.temperatures[idx] - 20.0;
                 if temp > 1.0 {
@@ -199,6 +212,148 @@ impl DustApp {
         }
     }
 
+    fn world_to_temperature_image(&self) -> ColorImage {
+        let mut pixels = vec![Color32::BLACK; self.width * self.height];
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let idx = y * self.width + x;
+                let temp = self.world.temperatures[idx];
+                let norm = if temp != 20.0 {
+                    (temp / 100.0).clamp(-1.0, 1.0) 
+                } else {
+                    0.0
+                };
+                let intensity = (norm.abs().min(1.0) * 255.0) as i32;
+
+                let color = if norm > 0.0 {
+                    let r = 255u8;
+                    let g = (255 - (intensity / 2)).clamp(0, 255) as u8;
+                    let b = (255 - intensity).clamp(0, 255) as u8;
+                    Color32::from_rgb(r, g, b)
+                } else if norm < 0.0 {
+                    let b = 255u8;
+                    let g = (255 - (intensity / 2)).clamp(0, 255) as u8;
+                    let r = (255 - intensity).clamp(0, 255) as u8;
+                    Color32::from_rgb(r, g, b)
+                } else {
+                    Color32::BLACK
+                };
+
+                pixels[idx] = color;
+            }
+        }
+
+        ColorImage {
+            size: [self.width, self.height],
+            pixels,
+            source_size: egui::vec2(self.width as f32, self.height as f32),
+        }
+    }
+
+    fn world_to_charge_image(&self) -> ColorImage {
+        let mut pixels = vec![Color32::BLACK; self.width * self.height];
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let idx = y * self.width + x;
+                let charge = self.world.electrical_charge[idx];
+                let intensity = ((charge.abs() * 25.0).min(255.0)) as i32;
+
+                let color = if charge > 0.0 {
+                    
+                    let r = (128 + (intensity / 2)).clamp(0, 255) as u8;
+                    let g = (128 + (intensity / 2)).clamp(0, 255) as u8;
+                    let b = 0u8;
+                    Color32::from_rgb(r, g, b)
+                } else if charge < 0.0 {
+                    
+                    let r = (128 + (intensity / 3)).clamp(0, 255) as u8;
+                    let g = 0u8;
+                    let b = (128 + (intensity / 2)).clamp(0, 255) as u8;
+                    Color32::from_rgb(r, g, b)
+                } else {
+                    Color32::from_gray(8)
+                };
+
+                pixels[idx] = color;
+            }
+        }
+
+        ColorImage {
+            size: [self.width, self.height],
+            pixels,
+            source_size: egui::vec2(self.width as f32, self.height as f32),
+        }
+    }
+
+    fn world_to_time_effect_image(&self) -> ColorImage {
+        let mut pixels = vec![Color32::BLACK; self.width * self.height];
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let idx = y * self.width + x;
+                let te = self.world.time_effects[idx];
+                let mag = ((te.abs().min(10.0) / 10.0) * 255.0) as i32;
+
+                let color = if te > 0.0 {
+                    
+                    let r = 255u8;
+                    let g = (255 - (mag / 2)).clamp(0, 255) as u8;
+                    let b = (255 - mag).clamp(0, 255) as u8;
+                    Color32::from_rgb(r, g, b)
+                } else if te < 0.0 {
+                    
+                    let r = (255 - mag).clamp(0, 255) as u8;
+                    let g = 255u8;
+                    let b = (255 - (mag / 2)).clamp(0, 255) as u8;
+                    Color32::from_rgb(r, g, b)
+                } else {
+                    Color32::from_gray(12)
+                };
+
+                pixels[idx] = color;
+            }
+        }
+
+        ColorImage {
+            size: [self.width, self.height],
+            pixels,
+            source_size: egui::vec2(self.width as f32, self.height as f32),
+        }
+    }
+
+    fn world_to_force_image(&self) -> ColorImage {
+        let mut pixels = vec![Color32::BLACK; self.width * self.height];
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let idx = y * self.width + x;
+                let force = self.world.force[idx];
+                let fx = force.0;
+                let fy = force.1;
+                let magnitude = (fx.powi(2) + fy.powi(2)).sqrt();
+
+                let right = fx.max(0.0);
+                let left = (-fx).max(0.0);
+                let down = fy.max(0.0);
+                let up = (-fy).max(0.0);
+
+                let r = ((right + up) * 30.0).min(255.0) as u8;
+                let g = ((left + down) * 30.0).min(255.0) as u8;
+                let b = (magnitude * 30.0).min(255.0) as u8;
+
+                pixels[idx] = Color32::from_rgb(r, g, b);
+            }
+        }
+
+        ColorImage {
+            size: [self.width, self.height],
+            pixels,
+            source_size: egui::vec2(self.width as f32, self.height as f32),
+        }
+    }
+
 fn _ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         
         let available_size = ui.available_size();
@@ -223,11 +378,17 @@ fn _ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
 
         
         ui.vertical_centered(|ui| {
-            ui.label("Simulation (click/drag to paint)");
+            ui.label(format!("Simulation (click/drag to paint), 1-5 to change view mode. View Mode: {:?}", self.view_mode));
 
-            let color_image = self.world_to_color_image();
-            
-            
+
+            let color_image = match self.view_mode {
+                ViewMode::Normal => self.world_to_color_image(),
+                ViewMode::Temperature => self.world_to_temperature_image(),
+                ViewMode::Charge => self.world_to_charge_image(),
+                ViewMode::TimeEffect => self.world_to_time_effect_image(),
+                ViewMode::Force => self.world_to_force_image(),
+            };
+
             let texture_handle = self.texture.get_or_insert_with(|| {
                 ui.ctx().load_texture(
                     "sim_tex",
@@ -292,10 +453,10 @@ fn _ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
                     {
                         match self.selected_power {
                             Power::Heat => {
-                                self.world.add_heat(x as usize, y as usize, 100.0 * (1.0 + (self.brush_size as f32 / 10.0)));
+                                self.world.add_heat(x as usize, y as usize, 10.0 * (1.0 + (self.brush_size as f32 / 10.0)));
                             }
                             Power::Cold => {
-                                self.world.add_cold(x as usize, y as usize, 100.0 * (1.0 + (self.brush_size as f32 / 10.0)));
+                                self.world.add_cold(x as usize, y as usize, 10.0 * (1.0 + (self.brush_size as f32 / 10.0)));
                             }
                             Power::Charge => {
                                 let idx = self.world.get_index(x as usize, y as usize);
@@ -523,7 +684,7 @@ impl eframe::App for DustApp {
             self.scroll_accumulator += scroll;
 
             
-            let threshold = 2.0; 
+            let threshold = 5.0; 
 
             if self.scroll_accumulator.abs() >= threshold {
                 if self.scroll_accumulator > 0.0 {
@@ -533,6 +694,22 @@ impl eframe::App for DustApp {
                 }
                 
                 self.scroll_accumulator = 0.0;
+            }
+
+            if i.key_pressed(egui::Key::Num1) {
+                self.view_mode = ViewMode::Normal;
+            }
+            if i.key_pressed(egui::Key::Num2) {
+                self.view_mode = ViewMode::Temperature;
+            }
+            if i.key_pressed(egui::Key::Num3) {
+                self.view_mode = ViewMode::Charge;
+            }
+            if i.key_pressed(egui::Key::Num4) {
+                self.view_mode = ViewMode::TimeEffect;
+            }
+            if i.key_pressed(egui::Key::Num5) {
+                self.view_mode = ViewMode::Force;
             }
         });
 
@@ -730,7 +907,7 @@ impl eframe::App for DustApp {
 
 			ui.separator();
 			ui.label("Discovered Elements:");
-			ui.label(format!("{}/{}", self.world.discovered_elements.len(), Element::COUNT - 2));
+			ui.label(format!("{}/{}", self.world.discovered_elements.len(), Element::COUNT - 4));
         });
 
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -769,6 +946,8 @@ fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default().with_inner_size(egui::vec2(1400.0, 900.0)),
         ..Default::default()
     };
+
+    
 
     eframe::run_native(
         "Dust",

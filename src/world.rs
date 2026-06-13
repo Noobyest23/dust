@@ -1,10 +1,12 @@
 pub mod element;
+pub mod mods;
 use element::{Condition, Element, Movement, Reaction};
+use mods::ModLoader;
 use strum::IntoEnumIterator;
 use std::cmp::min;
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufReader, Read, Write};
 
 #[cfg(target_arch = "wasm32")]
 use web_sys::{Storage, Window};
@@ -26,9 +28,12 @@ pub struct World {
     pub time_effects: Vec<f32>,
     pub electrical_charge: Vec<f32>,
     pub force: Vec<(f32, f32)>,
+    pub last_expensive_check: Vec<u32>,
     
     pub discovered_elements: HashSet<Element>,
     pub new_discovery: Option<Element>,
+    pub process: bool,
+    pub mod_loader: ModLoader,
 }
 
 impl World {
@@ -53,6 +58,7 @@ impl World {
             let idx = y * self.width + x;
             self.elements[idx] = element;
             self.last_update[idx] = self.frame_count;
+            self.last_expensive_check[idx] = self.frame_count;
 
             self.shades[idx] = if element == Element::Air {
                 0
@@ -61,7 +67,12 @@ impl World {
             };
             self.velocities[idx] = if rand::random() { 1 } else { -1 };
             self.lifetimes[idx] = 0;
-            self.temperatures[idx] = element.base_temp();
+            let elem_base_temp = element.base_temp();
+            self.temperatures[idx] = if elem_base_temp == 20.0 {
+                self.temperatures[idx]
+            } else {
+                elem_base_temp
+            };
 
             if !self.discovered_elements.contains(&element) && !element.is_super_hidden() {
                 self.discovered_elements.insert(element);
@@ -109,6 +120,7 @@ impl World {
             self.velocities.swap(idx1, idx2);
             self.temperatures.swap(idx1, idx2);
             self.lifetimes.swap(idx1, idx2);
+            self.last_expensive_check.swap(idx1, idx2);
 
             
             
@@ -145,6 +157,16 @@ impl World {
                 discovered_elements.insert(elem);
             }
         }
+        
+        
+        let mod_loader = match ModLoader::load_mods(std::path::Path::new("mods")) {
+            Ok(loader) => loader,
+            Err(e) => {
+                eprintln!("Failed to load mods: {}", e);
+                ModLoader::new()
+            }
+        };
+        
         Self {
             width,
             height,
@@ -160,9 +182,12 @@ impl World {
             time_effects: vec![0.0; width * height],
             electrical_charge: vec![0.0; width * height],
             force: vec![(0.0, 0.0); width * height],
+            last_expensive_check: vec![0; width * height],
             
             discovered_elements,
             new_discovery: None,
+            process: true,
+            mod_loader,
         }
     }
 }
@@ -170,24 +195,29 @@ impl World {
 
 impl World {
     pub fn update(&mut self) {
-        self.frame_count += 1;
-        self.update_heat();
-        self.update_physics();
-        self.update_time_field();
-        self.update_electrical_field();
-        
-
-        
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let idx = self.get_index(x, y);
-                if self.elements[idx] == Element::Air && self.temperatures[idx] == self.ambient_temp
-                {
-                    continue; 
+        if !self.process {
+            self.process = true;
+            self.update_heat();
+            self.update_physics();
+            self.update_time_field();
+            self.update_electrical_field();
+            
+            for y in 0..self.height {
+                for x in 0..self.width {
+                    let idx = self.get_index(x, y);
+                    if self.elements[idx] == Element::Air && self.temperatures[idx] == self.ambient_temp
+                    {
+                        continue; 
+                    }
+                    self.process_reactions(x, y);
                 }
-                self.process_reactions(x, y);
             }
+            return;
         }
+        self.process = false;
+
+        self.frame_count += 1;
+        
 
         
         
@@ -337,113 +367,105 @@ impl World {
 
     pub fn update_heat(&mut self) {
         let ambient = self.ambient_temp;
+        let width = self.width;
+        let height = self.height;
         
         
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let idx = self.get_index(x, y);
-                let current_elem = self.elements[idx];
-                let current_temp = self.temperatures[idx];
-
+        for idx in 0..width * height {
+            let current_elem = self.elements[idx];
+            
+            
+            if current_elem.source_temp().is_some() {
+                continue;
+            }
+            
+            let current_temp = self.temperatures[idx];
+            let local_time = 1.0 + self.time_effects[idx];
+            
+            
+            let base_rate = if current_elem == Element::Air { 0.8 } else { 0.01 };
+            let mut cooling_rate = (base_rate * local_time).clamp(0.0, 0.5);
+            let temp_diff = ambient - current_temp;
+            if !temp_diff.is_nan() {
                 
-                if let Some(temp) = current_elem.source_temp() {
-                    self.temperatures[idx] = temp;
-                    self.radiate_heat(x, y, temp);
-                    continue;
-                }
-
                 
                 
-                self.conduct_heat(x, y, current_elem, current_temp);
-
-                
-                
-                let local_time = 1.0 + self.time_effects[idx];
-                let base_rate = if current_elem == Element::Air { 0.1 } else { 0.01 };
-
-                
-                let cooling_rate = (base_rate * local_time).clamp(0.0, 0.5);
-
-                let temp_diff = ambient - current_temp;
-                if !temp_diff.is_nan() {
-                    self.temperatures[idx] += temp_diff * cooling_rate;
-                }
-
-                
-                if y > 0 && current_temp > ambient + 5.0 {
-                    let up_idx = self.get_index(x, y - 1);
-                    let temp_up = self.temperatures[up_idx];
-                    let diff = current_temp - temp_up;
-                    
-                    
-                    let mut transfer = diff * 0.1 * local_time;
-                    let max_transfer = diff * 0.5; 
-                    
-                    if transfer > max_transfer {
-                        transfer = max_transfer;
-                    }
-
-                    if transfer > 0.0 && !transfer.is_nan() {
-                        self.temperatures[up_idx] += transfer;
-                        self.temperatures[idx] -= transfer;
-                    }
-                }
-
+                let diff_mag = temp_diff.abs();
+                let slowdown = (1.0 + (diff_mag / 50.0)).clamp(1.0, 20.0);
+                cooling_rate /= slowdown;
+                self.temperatures[idx] += temp_diff * cooling_rate;
             }
         }
-    }
-
-    
-    fn radiate_heat(&mut self, x: usize, y: usize, temp: f32) {
-        let neighbors = [
-            (x as i32 - 1, y as i32),
-            (x as i32 + 1, y as i32),
-            (x as i32, y as i32 - 1),
-            (x as i32, y as i32 + 1),
-        ];
-        for (nx, ny) in neighbors {
-            if self.is_in_bounds(nx, ny) {
-                let n_idx = self.get_index(nx as usize, ny as usize);
-                
-                let diff = temp - self.temperatures[n_idx];
-                self.temperatures[n_idx] += diff * 0.1;
-            }
-        }
-    }
-
-    fn conduct_heat(&mut self, x: usize, y: usize, current_elem: Element, current_temp: f32) {
-        let idx_a = self.get_index(x, y);
-        let conductivity_a = current_elem.conductivity();
         
         
-        let dt = 1.0 + self.time_effects[idx_a];
-
-        for (nx, ny) in [(x + 1, y), (x, y + 1)] {
-            if nx < self.width && ny < self.height {
-                let idx_b = self.get_index(nx, ny);
-                let elem_b = self.elements[idx_b];
-                let temp_b = self.temperatures[idx_b];
-
-                let diff = current_temp - temp_b;
-                
-                if diff.abs() > 0.01 {
-                    let combined_conductivity = (conductivity_a + elem_b.conductivity()) * 0.5;
-
+        {
+            let mut new_temps = self.temperatures.clone();
+            for y in 0..height {
+                for x in 0..width {
+                    let idx = y * width + x;
                     
-                    
-                    
-                    let mut transfer_rate = combined_conductivity * dt;
-                    
-                    
-                    if transfer_rate > 0.5 {
-                        transfer_rate = 0.5;
+                    if self.elements[idx].source_temp().is_some() {
+                        continue;
                     }
 
-                    let transfer_amount = diff * transfer_rate;
+                    let current_temp = self.temperatures[idx];
+                    let local_time = 1.0 + self.time_effects[idx];
 
                     
-                    self.temperatures[idx_a] -= transfer_amount;
-                    self.temperatures[idx_b] += transfer_amount;
+                    let mut sum: f32 = 0.0;
+                    let mut weight: f32 = 0.0;
+
+                    if y > 0 {
+                        let up_idx = (y - 1) * width + x;
+                        sum += self.temperatures[up_idx] * 1.6f32;
+                        weight += 1.6f32;
+                    }
+                    if y + 1 < height {
+                        let down_idx = (y + 1) * width + x;
+                        sum += self.temperatures[down_idx] * 1.0f32;
+                        weight += 1.0f32;
+                    }
+                    if x > 0 {
+                        let left_idx = y * width + (x - 1);
+                        sum += self.temperatures[left_idx] * 1.0f32;
+                        weight += 1.0f32;
+                    }
+                    if x + 1 < width {
+                        let right_idx = y * width + (x + 1);
+                        sum += self.temperatures[right_idx] * 1.0f32;
+                        weight += 1.0f32;
+                    }
+
+                    if weight > 0.0 {
+                        let neighbor_avg = sum / weight;
+                        
+                        let base_diffusion = 0.08f32;
+                        let diffusion_rate = (base_diffusion * local_time).clamp(0.0f32, 0.6f32);
+                        let delta = (neighbor_avg - current_temp) * diffusion_rate;
+                        if !delta.is_nan() {
+                            new_temps[idx] += delta;
+                        }
+                    }
+                }
+            }
+            self.temperatures = new_temps;
+        }
+        
+        
+        for idx in 0..width * height {
+            if let Some(temp) = self.elements[idx].source_temp() {
+                self.temperatures[idx] = temp;
+                let x = idx % width;
+                let y = idx / width;
+                
+                
+                for (nx, ny) in [(x as i32 - 1, y as i32), (x as i32 + 1, y as i32), 
+                                  (x as i32, y as i32 - 1), (x as i32, y as i32 + 1)] {
+                    if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                        let n_idx = (ny as usize) * width + (nx as usize);
+                        let diff = temp - self.temperatures[n_idx];
+                        self.temperatures[n_idx] += diff * 0.1;
+                    }
                 }
             }
         }
@@ -498,29 +520,34 @@ impl World {
     }
 
     pub fn update_time_field(&mut self) {
+        
+        let mut new_time = self.time_effects.clone();
+        
         for y in 0..self.height {
             for x in 0..self.width {
-                let idx = self.get_index(x, y);
-
+                let idx = y * self.width + x;
+                new_time[idx] *= 0.995;
                 
-                self.time_effects[idx] *= 0.995;
-
                 
                 if x > 0 && x < self.width - 1 {
-                    let left = self.get_index(x - 1, y);
-                    let right = self.get_index(x + 1, y);
+                    let left = y * self.width + (x - 1);
+                    let right = y * self.width + (x + 1);
                     let avg = (self.time_effects[left] + self.time_effects[right]) * 0.5;
-                    self.time_effects[idx] = self.time_effects[idx] * 0.8 + avg * 0.2;
+                    new_time[idx] = new_time[idx] * 0.8 + avg * 0.2;
                 }
             }
         }
+        
+        self.time_effects = new_time;
     }
 
     pub fn update_electrical_field(&mut self) {
-        let mut new_charge = self.electrical_charge.clone();
+        
+        
+        let old_charge = self.electrical_charge.clone();
+        let mut new_charge = old_charge.clone();
         let mut visited = vec![false; (self.width * self.height) as usize];
 
-        
         
         for y in 0..self.height {
             for x in 0..self.width {
@@ -534,7 +561,7 @@ impl World {
                     while let Some((cx, cy)) = stack.pop() {
                         let c_idx = self.get_index(cx, cy);
                         cluster.push(c_idx);
-                        total_charge += self.electrical_charge[c_idx];
+                        total_charge += old_charge[c_idx];
 
                         for (nx, ny) in [(cx as i32 - 1, cy as i32), (cx as i32 + 1, cy as i32), (cx as i32, cy as i32 - 1), (cx as i32, cy as i32 + 1)] {
                             if self.is_in_bounds(nx, ny) {
@@ -548,53 +575,65 @@ impl World {
                     }
 
                     if !cluster.is_empty() {
-                        
                         let average_charge = (total_charge / cluster.len() as f32) * 0.99;
                         for &pixel_idx in &cluster {
                             new_charge[pixel_idx] = average_charge;
-                            
-                            self.electrical_charge[pixel_idx] = average_charge;
                         }
                     }
+                }
+
+                if new_charge[idx] < 0.1 {
+                    new_charge[idx] = 0.0;
                 }
             }
         }
 
         
+        for idx in 0..self.width * self.height {
+            let current_charge = old_charge[idx];
+            if current_charge <= 0.1 { continue; }
+
+            let current_elem = self.elements[idx];
+            let current_conduction = current_elem.conductivity();
+            let is_super_conductor = current_conduction >= 1.0;
+            let is_battery = current_elem == Element::Battery;
+
+            if !is_super_conductor && !is_battery {
+                let resistance = (1.0 - current_conduction).max(0.1);
+                let heat_generated = current_charge * current_charge * resistance * 0.0125;
+                self.temperatures[idx] += heat_generated;
+            }
+
+            if !is_super_conductor {
+                let decay_factor = if is_battery {
+                    0.9999999
+                } else if current_conduction > 0.5 {
+                    0.95
+                } else {
+                    0.4
+                };
+                new_charge[idx] *= decay_factor;
+            }
+        }
+
+        
+        use rand::seq::SliceRandom;
+        let mut rng = rand::thread_rng();
+
         for y in 0..self.height {
             for x in 0..self.width {
                 let idx = self.get_index(x, y);
-                let current_charge = self.electrical_charge[idx];
+                let current_charge = old_charge[idx];
                 if current_charge <= 0.1 { continue; }
-                
 
                 let current_elem = self.elements[idx];
                 let current_conduction = current_elem.conductivity();
-
-                self.temperatures[idx] += current_charge * if (current_conduction < 1.0) {current_conduction} else {0.9999};
-
                 let is_conductor = current_conduction > 0.5;
-                let is_super_conductor = current_conduction > 1.0;
-                let is_battery = current_elem == Element::Battery;
 
-                if !is_super_conductor {
-                    let decay_factor = if is_battery {
-                        0.9999999 
-                    } else if current_elem.conductivity() > 0.5 {
-                        0.95   
-                    } else {
-                        0.4    
-                    };
-                    new_charge[idx] *= decay_factor;
-                }
-
-                
                 let mut neighbors = [(x as i32 - 1, y as i32), (x as i32 + 1, y as i32), (x as i32, y as i32 - 1), (x as i32, y as i32 + 1)];
-                use rand::seq::SliceRandom;
-                let mut rng = rand::thread_rng();
                 neighbors.shuffle(&mut rng);
 
-                let max_branches = if is_conductor { 4 } else { 1 }; 
+                let max_branches = if is_conductor { 4 } else { 1 };
                 let mut branches_created = 0;
 
                 for (nx, ny) in neighbors {
@@ -605,12 +644,10 @@ impl World {
                     let target_elem = self.elements[n_idx];
                     let target_cond = target_elem.conductivity();
 
-                    
-                    
                     let jump_chance = if target_cond > 0.1 {
-                        1.0 
+                        1.0
                     } else if current_charge > 0.8 {
-                        0.15 
+                        0.15
                     } else {
                         0.0
                     };
@@ -627,22 +664,12 @@ impl World {
                 }
             }
         }
+
         self.electrical_charge = new_charge;
     }
 
     pub fn equalize_superconductors(&mut self) {
-        let mut visited = vec![false; (self.width * self.height) as usize];
-        let mut new_charge = self.electrical_charge.clone();
-
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let idx = self.get_index(x, y);
-
-                
-                
-            }
-        }
-        self.electrical_charge = new_charge;
+        
     }
 
     fn update_force(&mut self) {
@@ -653,14 +680,18 @@ impl World {
             for x in 0..self.width {
                 let idx = self.get_index(x, y);
                 let (fx, fy) = self.force[idx];
-
+                let fx_abs = fx.abs();
+                let fy_abs = fy.abs();
                 
-                if fx.abs() < 0.1 && fy.abs() < 0.1 { 
+                if fx_abs < 0.1 && fy_abs < 0.1 { 
                     self.force[idx] = (0.0, 0.0); 
                     continue; 
                 }
 
-                
+                if fx_abs > 3.0 || fy_abs > 3.0 {
+                    self.temperatures[idx] += (fx_abs + fy_abs) * 0.5;
+                }
+
                 let target_x = (x as f32 + fx).round() as i32;
                 let target_y = (y as f32 + fy).round() as i32;
 
@@ -799,86 +830,87 @@ impl World {
     }
 }
 
-
 impl World {
+    
+    #[inline]
+    fn get_neighbors(&self, x: usize, y: usize) -> [Element; 4] {
+        [
+            if x > 0 { self.get(x - 1, y) } else { Element::Stone },
+            if x < self.width - 1 { self.get(x + 1, y) } else { Element::Stone },
+            if y > 0 { self.get(x, y - 1) } else { Element::Stone },
+            if y < self.height - 1 { self.get(x, y + 1) } else { Element::Stone },
+        ]
+    }
+
+    
+    fn find_nearest_air(&self, x: usize, y: usize, max_radius: i32) -> Option<(usize, usize)> {
+        if !self.is_in_bounds(x as i32, y as i32) {
+            return None;
+        }
+
+        if self.get(x, y) == Element::Air {
+            return Some((x, y));
+        }
+
+        use std::collections::VecDeque;
+
+        let mut visited = vec![false; self.width * self.height];
+        let mut q: VecDeque<(i32, i32, i32)> = VecDeque::new();
+        q.push_back((x as i32, y as i32, 0));
+        visited[self.get_index(x, y)] = true;
+
+        while let Some((cx, cy, dist)) = q.pop_front() {
+            if dist >= max_radius {
+                continue;
+            }
+
+            
+            for (dx, dy) in &[(0, -1), (0, 1), (-1, 0), (1, 0)] {
+                let nx = cx + dx;
+                let ny = cy + dy;
+                if nx < 0 || ny < 0 || nx >= self.width as i32 || ny >= self.height as i32 {
+                    continue;
+                }
+                let n_idx = self.get_index(nx as usize, ny as usize);
+                if visited[n_idx] {
+                    continue;
+                }
+                visited[n_idx] = true;
+
+                if self.get(nx as usize, ny as usize) == Element::Air {
+                    return Some((nx as usize, ny as usize));
+                }
+
+                q.push_back((nx, ny, dist + 1));
+            }
+        }
+
+        None
+    }
+
     fn check_condition(&self, x: usize, y: usize, cond: &Condition) -> bool {
         let idx = self.get_index(x, y);
         match cond {
+            
             Condition::LifetimeGreater(t) => self.lifetimes[idx] > *t,
             Condition::TemperatureAbove(t) => self.temperatures[idx] > *t,
             Condition::TemperatureBelow(t) => self.temperatures[idx] < *t,
             Condition::RandomChance(p) => rand::random::<f32>() < *p,
+            Condition::HasChargeAbove(charge) => self.electrical_charge[idx] > *charge,
+            Condition::HasChargeBelow(charge) => self.electrical_charge[idx] < *charge,
+            
+            
             Condition::NearElement(target_elem) => {
-                
-                for (nx, ny) in [
-                    (x as i32, y as i32 - 1),
-                    (x as i32, y as i32 + 1),
-                    (x as i32 - 1, y as i32),
-                    (x as i32 + 1, y as i32),
-                ] {
-                    if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                        if self.get(nx as usize, ny as usize) == *target_elem {
-                            return true;
-                        }
-                    }
-                }
-                false
+                let neighbors = self.get_neighbors(x, y);
+                neighbors.iter().any(|e| e == target_elem)
             }
             Condition::NotNearElement(target_elem) => {
-                for (nx, ny) in [
-                    (x as i32, y as i32 - 1),
-                    (x as i32, y as i32 + 1),
-                    (x as i32 - 1, y as i32),
-                    (x as i32 + 1, y as i32),
-                ] {
-                    if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                        if self.get(nx as usize, ny as usize) == *target_elem {
-                            return false;
-                        }
-                    }
-                }
-                true
+                let neighbors = self.get_neighbors(x, y);
+                !neighbors.iter().any(|e| e == target_elem)
             }
-            Condition::IsInsideOf(target_elem) => {
-                
-                for (nx, ny) in [
-                    (x as i32, y as i32 - 1),
-                    (x as i32, y as i32 + 1),
-                    (x as i32 - 1, y as i32),
-                    (x as i32 + 1, y as i32),
-                ] {
-                    if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                        if self.get(nx as usize, ny as usize) != *target_elem {
-                            return false; 
-                        }
-                    } else {
-                        
-                        return false;
-                    }
-                }
-                true
-            }
-
-            Condition::IsNotInsideOf(target_elem) => {
-                
-                let mut surrounded = true;
-                for (nx, ny) in [
-                    (x as i32, y as i32 - 1),
-                    (x as i32, y as i32 + 1),
-                    (x as i32 - 1, y as i32),
-                    (x as i32 + 1, y as i32),
-                ] {
-                    if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                        if self.get(nx as usize, ny as usize) != *target_elem {
-                            surrounded = false;
-                            break;
-                        }
-                    } else {
-                        surrounded = false; 
-                        break;
-                    }
-                }
-                !surrounded
+            Condition::NearElementType(target_elem) => {
+                let neighbors = self.get_neighbors(x, y);
+                neighbors.iter().any(|e| *e != Element::Air && e.movement_type() == *target_elem)
             }
             Condition::NearTemperatureAbove(t) => {
                 for (nx, ny) in [
@@ -912,32 +944,7 @@ impl World {
                 }
                 false
             }
-            Condition::IsElementInRadius(target_elem, radius) => {
-                let r = *radius as i32;
-                for dy in -r..=r {
-                    for dx in -r..=r {
-                        if dx == 0 && dy == 0 {
-                            continue;
-                        } 
-                        let nx = x as i32 + dx;
-                        let ny = y as i32 + dy;
-                        if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                            if self.get(nx as usize, ny as usize) == *target_elem {
-                                return true;
-                            }
-                        }
-                    }
-                }
-                false
-            }
-            Condition::HasChargeAbove(charge) => {
-                self.electrical_charge[idx] > *charge
-            }
-            Condition::HasChargeBelow(charge) => {
-                self.electrical_charge[idx] < *charge
-            }
-            Condition::NearElementType(target_elem) => {
-                
+            Condition::IsInsideOf(target_elem) => {
                 for (nx, ny) in [
                     (x as i32, y as i32 - 1),
                     (x as i32, y as i32 + 1),
@@ -945,16 +952,72 @@ impl World {
                     (x as i32 + 1, y as i32),
                 ] {
                     if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                        let elem = self.get(nx as usize, ny as usize);
-                        if elem == Element::Air {
-                            continue;
+                        if self.get(nx as usize, ny as usize) != *target_elem {
+                            return false; 
                         }
-                        if elem.movement_type() == *target_elem {
+                    } else {
+                        return false;
+                    }
+                }
+                true
+            }
+            Condition::IsNotInsideOf(target_elem) => {
+                for (nx, ny) in [
+                    (x as i32, y as i32 - 1),
+                    (x as i32, y as i32 + 1),
+                    (x as i32 - 1, y as i32),
+                    (x as i32 + 1, y as i32),
+                ] {
+                    if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
+                        if self.get(nx as usize, ny as usize) != *target_elem {
                             return true;
                         }
+                    } else {
+                        return true;
                     }
                 }
                 false
+            }
+            
+            
+            Condition::IsElementInRadius(target_elem, radius) => {
+                
+                let neighbors = self.get_neighbors(x, y);
+                if neighbors.iter().any(|e| e == target_elem) {
+                    return true;
+                }
+                
+                
+                let frames_since_check = self.frame_count - self.last_expensive_check[idx];
+                if frames_since_check < 3 {
+                    
+                    
+                    return false;
+                }
+                
+                
+                let r = *radius as i32;
+                let mut found = false;
+                for ring in 1..=r {
+                    for dy in -ring..=ring {
+                        for dx in -ring..=ring {
+                            if dx.abs() != ring && dy.abs() != ring {
+                                continue;
+                            }
+                            let nx = x as i32 + dx;
+                            let ny = y as i32 + dy;
+                            if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
+                                if self.get(nx as usize, ny as usize) == *target_elem {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if found { break; }
+                    }
+                    if found { break; }
+                }
+                found
             }
         }
     }
@@ -988,16 +1051,10 @@ impl World {
                     let neighbor_elem = self.get(nx as usize, ny as usize);
 
                     if neighbor_elem.is_corrosive() {
-                        
-                        
-                        
-                        
                         let corrosion_chance = (0.2 * local_time) * (1.0 - resistance);
 
                         if rand::random::<f32>() < corrosion_chance {
-                            
                             self.set(x, y, Element::Smoke);
-
                             
                             if rand::random::<f32>() < 0.5 {
                                 self.set(nx as usize, ny as usize, Element::Air);
@@ -1010,6 +1067,34 @@ impl World {
         }
         
 
+        
+        if current_elem == Element::Explosion {
+            let blast_radius = 5;
+            let force_magnitude = 4.0;
+            
+            for dy in -(blast_radius as i32)..=blast_radius as i32 {
+                for dx in -(blast_radius as i32)..=blast_radius as i32 {
+                    if dx == 0 && dy == 0 { continue; }
+                    
+                    let nx = x as i32 + dx;
+                    let ny = y as i32 + dy;
+                    
+                    if self.is_in_bounds(nx, ny) {
+                        let n_idx = self.get_index(nx as usize, ny as usize);
+                        let dist = ((dx * dx + dy * dy) as f32).sqrt();
+                        
+                        if dist <= blast_radius as f32 {
+                            let force_falloff = 1.0 - (dist / blast_radius as f32);
+                            let normalized_dx = dx as f32 / dist;
+                            let normalized_dy = dy as f32 / dist;
+                            
+                            self.force[n_idx].0 += normalized_dx * force_magnitude * force_falloff;
+                            self.force[n_idx].1 += normalized_dy * force_magnitude * force_falloff;
+                        }
+                    }
+                }
+            }
+        }
         
         if current_elem == Element::Air {
             let has_fire = self.check_condition(x, y, &Condition::NearElement(Element::Fire));
@@ -1032,25 +1117,61 @@ impl World {
             }
         }
 
-
         
         let loops = local_time.ceil() as i32;
         for _ in 0..loops {
+            let elem_idx = current_elem.to_u32() as usize;
             
-            let elem_idx = current_elem as usize;
-            let reactions = &self.reaction_lookup[elem_idx];
-
             
-            if reactions.is_empty() {
-                return;
-            }
-
-            
-            if let Some(reaction) = reactions
+            let output_items: Option<Vec<_>> = self.reaction_lookup[elem_idx]
                 .iter()
                 .find(|r| r.conditions.iter().all(|c| self.check_condition(x, y, c)))
-            {
-                self.set(x, y, reaction.output);
+                .map(|r| r.output.clone());
+
+            if let Some(output_items) = output_items {
+                
+                for (output_elem, count) in &output_items {
+                    let mut placed = 0;
+
+                    for _ in 0..*count {
+                        
+                        if self.get(x, y) == current_elem {
+                            self.set(x, y, *output_elem);
+                            placed += 1;
+                            continue;
+                        }
+
+                        
+                        let neighbors = [
+                            (x as i32, y as i32 - 1), (x as i32, y as i32 + 1),
+                            (x as i32 - 1, y as i32), (x as i32 + 1, y as i32),
+                        ];
+
+                        let mut placed_here = false;
+                        for (nx, ny) in neighbors {
+                            if placed_here { break; }
+                            if !self.is_in_bounds(nx, ny) { continue; }
+                            if self.get(nx as usize, ny as usize) == Element::Air {
+                                self.set(nx as usize, ny as usize, *output_elem);
+                                placed += 1;
+                                placed_here = true;
+                            }
+                        }
+                        if placed_here { continue; }
+
+                        
+                        if let Some((tx, ty)) = self.find_nearest_air(x, y, 6) {
+                            
+                            self.set(tx, ty, *output_elem);
+                            placed += 1;
+                            continue;
+                        }
+
+                        
+                    }
+                }
+                
+                break;
             }
         }
     }
@@ -1081,7 +1202,7 @@ impl World {
             temp: self.temperatures[idx],
             age: self.lifetimes[idx],
             time_mod: 1.0 + self.time_effects[idx],
-            reactions: self.reaction_lookup[self.elements[idx] as usize].clone(),
+            reactions: self.reaction_lookup[self.elements[idx].to_u32() as usize].clone(),
             flammability: self.elements[idx].flammability(),
             corrosion_resistance: self.elements[idx].corrosive_resistance(),
             density: self.elements[idx].density(),

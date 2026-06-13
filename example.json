@@ -1,0 +1,10 @@
+{
+  "name": "Liquid Metal",
+  "color": [200, 100, 50, 255],
+  "density": 60,
+  "conductivity": 3.5,
+  "movement_type": "liquid",
+  "base_temp": 100.0,
+  "flammability": 0.0,
+  "corrosive_resistance": 0.7
+}

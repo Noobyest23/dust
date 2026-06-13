@@ -12,7 +12,7 @@ macro_rules! melting_point {
                 Condition::TemperatureAbove($temp),
                 Condition::RandomChance(0.05),
             ],
-            output: Element::Lava,
+            output: vec![(Element::Lava, 1)],
         }
     };
 }
@@ -48,7 +48,7 @@ pub enum Element {
     Dust,
     Plant,
     Lamp,
-    #[strum(serialize = "Lamp")]
+    #[strum(serialize = "Charged Lamp")]
     LampOn,
     Battery,
     Wire,
@@ -64,6 +64,12 @@ pub enum Element {
     Concrete,
     Fungus,
     Explosion,
+    UserDefined(u32), 
+    Gold,
+    Snow,
+    Nitrogen,
+    Ammonia,
+    Oxygen,
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -95,7 +101,7 @@ pub enum Condition {
 #[derive(Clone)]
 pub struct Reaction {
     pub conditions: Vec<Condition>,
-    pub output: Element,
+    pub output: Vec<(Element, usize)>,
 }
 
 pub fn can_displace(source: Element, target: Element) -> bool {
@@ -125,6 +131,57 @@ pub fn can_displace(source: Element, target: Element) -> bool {
 
 impl Element {
 
+    pub fn to_u32(&self) -> u32 {
+        match self {
+            Element::Air => 0,
+            Element::Stone => 1,
+            Element::Water => 2,
+            Element::Sand => 3,
+            Element::Steam => 4,
+            Element::Fire => 5,
+            Element::Smoke => 6,
+            Element::Ice => 7,
+            Element::Copper => 8,
+            Element::AgedCopper => 9,
+            Element::Zinc => 10,
+            Element::Lava => 11,
+            Element::Obsidian => 12,
+            Element::Wood => 13,
+            Element::Oil => 14,
+            Element::Ash => 15,
+            Element::Charcoal => 16,
+            Element::LiquidNitrogen => 17,
+            Element::Cloud => 18,
+            Element::PackedSand => 19,
+            Element::Dirt => 20,
+            Element::Iron => 21,
+            Element::Acid => 22,
+            Element::Dust => 23,
+            Element::Plant => 24,
+            Element::Lamp => 25,
+            Element::LampOn => 26,
+            Element::Battery => 27,
+            Element::Wire => 28,
+            Element::Electricity => 29,
+            Element::Rust => 30,
+            Element::Turbine => 31,
+            Element::Glass => 32,
+            Element::Steel => 33,
+            Element::Brass => 34,
+            Element::Hydrogen => 35,
+            Element::WetConcrete => 36,
+            Element::Concrete => 37,
+            Element::Fungus => 38,
+            Element::Explosion => 39,
+            Element::UserDefined(_) => 40,
+            Element::Gold => 41,
+            Element::Snow => 42,
+            Element::Nitrogen => 43,
+            Element::Ammonia => 44,
+            Element::Oxygen => 45,
+        }
+    }
+
     pub fn from_string(name: String) -> Option<Element> {
         
         Element::iter()
@@ -153,6 +210,11 @@ impl Element {
             Element::Plant => true,
             Element::Fungus => true,
             Element::Explosion => true,
+            Element::UserDefined(_) => true,
+            Element::Snow => true,
+            Element::LiquidNitrogen => true,
+            Element::Ammonia => true,
+            Element::Oxygen => true,
             _ => false,
         }
     }
@@ -162,6 +224,7 @@ impl Element {
             Element::LampOn => true,
             Element::Electricity => true,
             Element::Explosion => true,
+            Element::UserDefined(_) => true,
             _ => false,
         }
     }
@@ -207,6 +270,12 @@ impl Element {
             Element::WetConcrete => Movement::Liquid,
             Element::Fungus => Movement::Static,
             Element::Explosion => Movement::Static,
+            Element::UserDefined(_) => Movement::Static, 
+            Element::Gold => Movement::Static,
+            Element::Snow => Movement::Powder,
+            Element::Nitrogen => Movement::Gas,
+            Element::Ammonia => Movement::Gas,
+            Element::Oxygen => Movement::Gas,
         }
     }
 
@@ -252,12 +321,18 @@ impl Element {
         Element::Concrete => 300,
         Element::Fungus => 30,
         Element::Explosion => 10,
+        Element::UserDefined(_) => 100, 
+        Element::Gold => 100,
+        Element::Snow => 42,
+        Element::Nitrogen => 0,
+        Element::Ammonia => 0,
+        Element::Oxygen => 0,
     }
 }
 
     pub fn conductivity(&self) -> f32 {
     match self {
-        Element::Copper => 1.0,      
+        Element::Copper => 2.0,      
         Element::AgedCopper => 0.9,  
         Element::Water => 0.76,       
         Element::Lava => 0.5,        
@@ -281,11 +356,11 @@ impl Element {
         Element::Acid => 0.6,
         Element::Dust => 0.05,
         Element::Plant => 0.1,
-        Element::Lamp => 1.0,
-        Element::LampOn => 1.0,
-        Element::Battery => 0.99999,
+        Element::Lamp => 0.99,
+        Element::LampOn => 0.99,
+        Element::Battery => 1.0,
         Element::Wire => 10.0,
-        Element::Electricity => 10.0,
+        Element::Electricity => 0.0,
         Element::Zinc => 0.29,
         Element::Rust => 0.14,
         Element::Turbine => 0.17,
@@ -297,6 +372,12 @@ impl Element {
         Element::WetConcrete => 0.4, 
         Element::Fungus => 0.5,
         Element::Explosion => 0.5,
+        Element::UserDefined(_) => 0.1, 
+        Element::Gold => 2.5,
+        Element::Snow => 0.1,
+        Element::Nitrogen => 0.01,
+        Element::Ammonia => 0.01,
+        Element::Oxygen => 0.01,
     }
 }
 
@@ -342,6 +423,12 @@ impl Element {
             Element::WetConcrete => [80, 85, 90, 255],
             Element::Fungus => [180, 156, 156, 255],
             Element::Explosion => [182, 92, 42, 255],
+            Element::UserDefined(_) => [255, 0, 255, 255],
+            Element::Gold => [255, 215, 0, 255],
+            Element::Snow => [240, 240, 255, 255],
+            Element::Nitrogen => [255, 255, 255, 80],
+            Element::Ammonia => [200, 255, 255, 255],
+            Element::Oxygen => [200, 255, 255, 255],
         }
     }
 
@@ -354,6 +441,8 @@ impl Element {
             Element::Ash => 150.0,
             Element::LiquidNitrogen => -196.0,
             Element::Cloud => 0.0, 
+            Element::Gold => 100.0,
+            Element::Snow => -10.0,
             _ => 20.0 
         }
     }
@@ -362,7 +451,7 @@ impl Element {
     pub fn corrosive_resistance(&self) -> f32 {
         match self {
             
-            Element::Obsidian | Element::Lava | Element::Air | Element::Electricity => 1.0,
+            Element::Obsidian | Element::Lava | Element::Air | Element::Electricity | Element::Smoke => 1.0,
             Element::Acid => 1.0,      
             Element::Glass => 1.0,     
             Element::Iron => 1.0,      
@@ -382,9 +471,9 @@ impl Element {
             Element::Zinc => 0.3,      
             
             
-            Element::Hydrogen => 0.1,  
+            Element::Hydrogen => 1.0,  
             Element::Wood | Element::Plant => 0.2, 
-
+            Element::Gold => 0.9,
             _ => 0.0,
         }
     }
@@ -402,9 +491,13 @@ impl Element {
             Element::Wood => 0.8, 
             Element::Oil => 0.9,  
             Element::Ash => 0.2,  
-            Element::Charcoal => 0.5, 
+            Element::Charcoal => 0.75, 
             Element::Plant => 0.9,
             Element::Fungus => 0.9,
+            Element::Hydrogen => 1.0,
+            Element::Explosion => 1.0,
+            Element::Ammonia => 0.5,
+            Element::Oxygen => 0.5,
             _ => 0.0,
         }
     }
@@ -418,28 +511,15 @@ impl Element {
     }
 
     pub fn source_temp(&self) -> Option<f32> {
-        match self {
-            Element::Fire => Some(250.0),
-            Element::Lava => Some(1000.0),
-            Element::LiquidNitrogen => Some(-196.0),
-            _ => None,
-        }
+        
+            
+            
+            
+        
+        
+        None
     }
 
-    
-    
-    
-    
-    
-    
-    
-
-    
-    
-    
-    
-    
-    
     
     pub fn get_reactions(&self) -> Vec<Reaction> {
         match self {
@@ -449,14 +529,14 @@ impl Element {
                         Condition::TemperatureAbove(100.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Steam,
+                    output: vec![(Element::Steam, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::TemperatureBelow(0.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Ice,
+                    output: vec![(Element::Ice, 1)],
                 },
                 Reaction {
                     conditions: vec![
@@ -464,14 +544,25 @@ impl Element {
                         Condition::RandomChance(0.0001),
                         Condition::IsNotInsideOf(Element::Water),
                     ],
-                    output: Element::Cloud,
+                    output: vec![(Element::Cloud, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::NearElement(Element::Plant),
                         Condition::RandomChance(0.01),
                     ],
-                    output: Element::Plant,
+                    output: vec![(Element::Plant, 1)],
+                },
+                Reaction {
+                    conditions: vec![
+                        Condition::HasChargeAbove(1.0),
+                        Condition::RandomChance(0.01),
+                    ],
+                    output: vec![
+                        (Element::Oxygen, 1),
+                        (Element::Hydrogen, 1),
+                        (Element::Hydrogen, 1),
+                    ],
                 }
             ],
             Element::Steam => vec![
@@ -480,7 +571,7 @@ impl Element {
                         Condition::TemperatureBelow(100.0),
                         Condition::RandomChance(0.002),
                     ],
-                    output: Element::Water,
+                    output: vec![(Element::Water, 1)],
                 }
             ],
             Element::Fire => vec![
@@ -488,26 +579,26 @@ impl Element {
                     conditions: vec![
                         Condition::RandomChance(0.01),
                     ],
-                    output: Element::Smoke,
+                    output: vec![(Element::Smoke, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::RandomChance(0.03),
                     ],
-                    output: Element::Air,
+                    output: vec![(Element::Air, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::NearElement(Element::Water),
                     ],
-                    output: Element::Smoke,
+                    output: vec![(Element::Smoke, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::TemperatureBelow(10.0),
                         Condition::RandomChance(0.3),
                     ],
-                    output: Element::Smoke,
+                    output: vec![(Element::Smoke, 1)],
                 },
             ],
             Element::Ice => vec![
@@ -516,7 +607,7 @@ impl Element {
                         Condition::NearTemperatureAbove(0.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Water,
+                    output: vec![(Element::Water, 1)],
                 }
             ],
             Element::Copper => vec![
@@ -526,7 +617,7 @@ impl Element {
                         Condition::RandomChance(0.002),
                         Condition::LifetimeGreater(2000),
                     ],
-                    output: Element::AgedCopper,
+                    output: vec![(Element::AgedCopper, 1)],
                 },
                 Reaction {
                     conditions: vec![
@@ -534,19 +625,26 @@ impl Element {
                         Condition::RandomChance(0.002),
                         Condition::LifetimeGreater(2000),
                     ],
-                    output: Element::AgedCopper,
+                    output: vec![(Element::AgedCopper, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::LifetimeGreater(20000),
                         Condition::RandomChance(0.0002),
                     ],
-                    output: Element::AgedCopper,
+                    output: vec![(Element::AgedCopper, 1)],
                 },
                 melting_point!(1085.0)
             ],
             Element::AgedCopper => vec![
-                melting_point!(1085.0)
+                melting_point!(1085.0),
+                Reaction {
+                    conditions: vec![
+                        Condition::NearElement(Element::Ammonia),
+                        Condition::RandomChance(0.01),
+                    ],
+                    output: vec![(Element::Copper, 1)],
+                }
             ],
             Element::Lava => vec![
                 Reaction {
@@ -554,14 +652,14 @@ impl Element {
                         Condition::NearTemperatureBelow(50.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Obsidian,
+                    output: vec![(Element::Obsidian, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::NearElement(Element::Water),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Obsidian,
+                    output: vec![(Element::Obsidian, 1)],
                 },
             ],
             Element::Wood => vec![
@@ -570,21 +668,21 @@ impl Element {
                         Condition::TemperatureAbove(100.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Fire,
+                    output: vec![(Element::Fire, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::TemperatureAbove(100.0),
                         Condition::RandomChance(0.02),
                     ],
-                    output: Element::Ash,
+                    output: vec![(Element::Ash, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::TemperatureAbove(100.0),
                         Condition::RandomChance(0.02),
                     ],
-                    output: Element::Charcoal,
+                    output: vec![(Element::Charcoal, 1)],
                 },
             ],
             Element::Oil => vec![
@@ -593,14 +691,14 @@ impl Element {
                         Condition::NearElement(Element::Fire),
                         Condition::RandomChance(0.0008),
                     ],
-                    output: Element::Fire,
+                    output: vec![(Element::Fire, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::TemperatureAbove(150.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Fire,
+                    output: vec![(Element::Fire, 1)],
                 }
             ],
             Element::Stone => vec![
@@ -613,7 +711,7 @@ impl Element {
                         Condition::TemperatureBelow(50.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Air,
+                    output: vec![(Element::Air, 1)],
                 }
             ],
             Element::Cloud => vec![
@@ -621,25 +719,27 @@ impl Element {
                     conditions: vec![
                         Condition::LifetimeGreater(5000),
                         Condition::RandomChance(0.01),
+                        Condition::TemperatureAbove(10.0)
                     ],
-                    output: Element::Water,
+                    output: vec![(Element::Water, 1)],
                 },
-            ],
-            Element::Sand => vec![
                 Reaction {
                     conditions: vec![
-                        Condition::TemperatureAbove(400.0),
-                        Condition::RandomChance(0.08),
+                        Condition::LifetimeGreater(5000),
+                        Condition::RandomChance(0.01),
+                        Condition::TemperatureBelow(10.0)
                     ],
-                    output: Element::Stone,
-                },
+                    output: vec![(Element::Snow, 1)],
+                }
+            ],
+            Element::Sand => vec![
                 Reaction {
                     conditions: vec![
                         Condition::NearElement(Element::Water),
                         Condition::NearElement(Element::Dust), 
                         Condition::RandomChance(0.05),
                     ],
-                    output: Element::WetConcrete,
+                    output: vec![(Element::WetConcrete, 1)],
                 },
                 Reaction {
                     conditions: vec![
@@ -647,14 +747,14 @@ impl Element {
                         Condition::IsElementInRadius(Element::Water, 4),
                         Condition::RandomChance(0.02),
                     ],
-                    output: Element::PackedSand,
+                    output: vec![(Element::PackedSand, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::TemperatureAbove(1000.0), 
                         Condition::RandomChance(0.1),
                     ],
-                    output: Element::Glass,
+                    output: vec![(Element::Glass, 1)],
                 },
                 
             ],
@@ -664,7 +764,7 @@ impl Element {
                         Condition::LifetimeGreater(1000), 
                         Condition::RandomChance(0.01),
                     ],
-                    output: Element::Concrete,
+                    output: vec![(Element::Concrete, 1)],
                 },
             ],
             Element::PackedSand => vec![
@@ -673,7 +773,7 @@ impl Element {
                         Condition::TemperatureAbove(200.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Sand,
+                    output: vec![(Element::Sand, 1)],
                 },
                 Reaction {
                     conditions: vec![
@@ -681,7 +781,7 @@ impl Element {
                         Condition::NearElement(Element::Dust), 
                         Condition::RandomChance(0.05),
                     ],
-                    output: Element::WetConcrete,
+                    output: vec![(Element::WetConcrete, 1)],
                 },
             ],
             Element::Dust => vec![
@@ -689,31 +789,32 @@ impl Element {
                     conditions: vec![
                         Condition::TemperatureAbove(60.0),
                     ],
-                    output: Element::Fire,
+                    output: vec![(Element::Explosion, 2), (Element::Fire, 1)],
                 }
             ],
             Element::Iron => vec![
                 melting_point!(1538.0),
                 Reaction {
                     conditions: vec![
-                        Condition::NearElement(Element::Acid),
+                        Condition::IsNotInsideOf(Element::Iron),
+                        Condition::IsElementInRadius(Element::Water, 4),
                         Condition::RandomChance(0.02),
                     ],
-                    output: Element::Rust
+                    output: vec![(Element::Rust, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::NearElement(Element::Acid),
                         Condition::RandomChance(0.02),
                     ],
-                    output: Element::Air
+                    output: vec![(Element::Hydrogen, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::LifetimeGreater(20000),
                         Condition::RandomChance(0.0002),
                     ],
-                    output: Element::Rust
+                    output: vec![(Element::Rust, 1)],
                 },
                 Reaction {
                     conditions: vec![
@@ -721,7 +822,7 @@ impl Element {
                         Condition::TemperatureAbove(600.0),
                         Condition::RandomChance(0.02),
                     ],
-                    output: Element::Steel,
+                    output: vec![(Element::Steel, 1)],
                 },
             ],
             Element::Plant => vec![
@@ -730,7 +831,7 @@ impl Element {
                         Condition::TemperatureAbove(100.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Fire,
+                    output: vec![(Element::Fire, 1)],
                 },
                 
             ],
@@ -739,13 +840,13 @@ impl Element {
                     conditions: vec![
                         Condition::HasChargeAbove(0.2),
                     ],
-                    output: Element::LampOn,
+                    output: vec![(Element::LampOn, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::TemperatureAbove(800.0),
                     ],
-                    output: Element::Lava,
+                    output: vec![(Element::Lava, 1)],
                 }
             ],
             Element::LampOn => vec![
@@ -753,30 +854,24 @@ impl Element {
                     conditions: vec![
                         Condition::HasChargeBelow(0.2),
                     ],
-                    output: Element::Lamp,
+                    output: vec![(Element::Lamp, 1)],
                 }
             ],
             Element::Charcoal => vec![
-                Reaction {
-                    conditions: vec![
-                        Condition::NearElement(Element::Fire),
-                        Condition::RandomChance(0.02),
-                    ],
-                    output: Element::Air
-                },
+                 
             ],
             Element::Electricity => vec![
                 Reaction {
                     conditions: vec![
                         Condition::LifetimeGreater(2),
                     ],
-                    output: Element::Air,
+                    output: vec![(Element::Air, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::RandomChance(0.2),
                     ],
-                    output: Element::Electricity,
+                    output: vec![(Element::Electricity, 1)],
                 }
             ],
             Element::Acid => vec![
@@ -785,14 +880,14 @@ impl Element {
                         Condition::IsElementInRadius(Element::Copper, 3),
                         Condition::NearElement(Element::Zinc),
                     ],
-                    output: Element::Electricity,
+                    output: vec![(Element::Electricity, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::IsElementInRadius(Element::AgedCopper, 3),
                         Condition::NearElement(Element::Zinc),
                     ],
-                    output: Element::Electricity,
+                    output: vec![(Element::Electricity, 1)],
                 }
             ],
             Element::Air => vec![
@@ -801,14 +896,14 @@ impl Element {
                         Condition::NearElementType(Movement::Liquid),
                         Condition::NearElement(Element::Turbine),
                     ],
-                    output: Element::Electricity,
+                    output: vec![(Element::Electricity, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::NearElementType(Movement::Gas),
                         Condition::NearElement(Element::Turbine),
                     ],
-                    output: Element::Electricity,
+                    output: vec![(Element::Electricity, 1)],
                 }
             ],
             Element::Zinc => vec![
@@ -818,16 +913,16 @@ impl Element {
                         Condition::TemperatureAbove(400.0), 
                         Condition::RandomChance(0.05),
                     ],
-                    output: Element::Brass,
+                    output: vec![(Element::Brass, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::NearElement(Element::Acid),
                         Condition::RandomChance(0.03),
                     ],
-                    output: Element::Hydrogen, 
+                    output: vec![(Element::Hydrogen, 32)],
                 },
-                melting_point!(419.0)
+                melting_point!(619.0)
             ],
             Element::Hydrogen => vec![
                 Reaction {
@@ -835,8 +930,16 @@ impl Element {
                         Condition::NearElement(Element::Fire),
                         Condition::RandomChance(0.5),
                     ],
-                    output: Element::Explosion,
+                    output: vec![(Element::Explosion, 4)],
                 },
+                Reaction {
+                    conditions: vec![
+                        Condition::TemperatureAbove(400.0),
+                        Condition::RandomChance(0.8),
+                        Condition::NearElement(Element::Nitrogen),
+                    ],
+                    output: vec![(Element::Ammonia, 1)],
+                }
             ],
             Element::Concrete => vec![
                 melting_point!(1500.0)
@@ -853,21 +956,23 @@ impl Element {
             Element::Dirt => vec![
                 Reaction {
                     conditions: vec![
+                        Condition::IsNotInsideOf(Element::Dirt),
                         Condition::TemperatureAbove(Element::Plant.growth_range().unwrap().0),
                         Condition::TemperatureBelow(Element::Plant.growth_range().unwrap().1),
-                        Condition::IsElementInRadius(Element::Water, 10),
+                        Condition::IsElementInRadius(Element::Water, 4),
                         Condition::RandomChance(0.02),
                     ],
-                    output: Element::Plant,
+                    output: vec![(Element::Plant, 1)],
                 },
                 Reaction {
                     conditions: vec![
+                        Condition::IsNotInsideOf(Element::Dirt),
                         Condition::TemperatureAbove(Element::Fungus.growth_range().unwrap().0),
                         Condition::TemperatureBelow(Element::Fungus.growth_range().unwrap().1),
-                        Condition::IsElementInRadius(Element::Water, 10),
+                        Condition::IsElementInRadius(Element::Water, 4),
                         Condition::RandomChance(0.02),
                     ],
-                    output: Element::Fungus,
+                    output: vec![(Element::Fungus, 1)],
                 }
             ],
             Element::Fungus => vec![
@@ -876,15 +981,84 @@ impl Element {
                         Condition::TemperatureAbove(100.0),
                         Condition::RandomChance(0.08),
                     ],
-                    output: Element::Fire,
+                    output: vec![(Element::Fire, 1)],
                 },
                 Reaction {
                     conditions: vec![
                         Condition::NearElement(Element::Dirt),
                         Condition::RandomChance(0.002),
                     ],
-                    output: Element::Fungus,
+                    output: vec![(Element::Fungus, 1)],
                 }
+            ],
+            Element::Explosion => vec![
+                Reaction {
+                    conditions: vec![
+                        Condition::RandomChance(0.3),
+                    ],
+                    output: vec![(Element::Fire, 1)],
+                },
+                Reaction {
+                    conditions: vec![
+                        Condition::LifetimeGreater(10),
+                        Condition::RandomChance(0.5),
+                    ],
+                    output: vec![(Element::Air, 1)],
+                },
+            ],
+            Element::Gold => vec![
+                Reaction {
+                    conditions: vec![
+                        Condition::TemperatureAbove(1064.0),
+                    ],
+                    output: vec![(Element::Lava, 1)],
+                }
+            ],
+            Element::Snow => vec![
+                Reaction {
+                    conditions: vec![
+                        Condition::TemperatureAbove(10.0),
+                        Condition::RandomChance(0.008),
+                    ],
+                    output: vec![(Element::Water, 1)],
+                }
+            ],
+            Element::Nitrogen => vec![
+                
+                Reaction {
+                    conditions: vec![
+                        Condition::TemperatureBelow(-196.0),
+                        Condition::RandomChance(0.08),
+                    ],
+                    output: vec![(Element::LiquidNitrogen, 1)],
+                },
+                Reaction {
+                    conditions: vec![
+                        Condition::TemperatureAbove(400.0),
+                        Condition::RandomChance(0.8),
+                        Condition::NearElement(Element::Hydrogen),
+                    ],
+                    output: vec![(Element::Ammonia, 1)],
+                }
+            ],
+            Element::LiquidNitrogen => vec![
+                
+                Reaction {
+                    conditions: vec![
+                        Condition::TemperatureAbove(-196.0),
+                        Condition::RandomChance(0.08),
+                    ],
+                    output: vec![(Element::Nitrogen, 1)],
+                },
+            ],
+            Element::Rust => vec![
+                Reaction {
+                    conditions: vec![
+                        Condition::NearElement(Element::Ammonia),
+                        Condition::RandomChance(0.08),
+                    ],
+                    output: vec![(Element::Iron, 1)],
+                },
             ],
             _ => vec![]
         }
