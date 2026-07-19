@@ -17,11 +17,6 @@ use std::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::world::mods::{ModLoader, generate_example_mods};
 
-
-
-
-
-
 #[cfg(target_arch = "wasm32")]
 use {
     wasm_bindgen::JsCast,
@@ -94,7 +89,7 @@ impl DustApp {
             world,
             width,
             height,
-            selected_element: Element::Sand,
+            selected_element: 3,
             selected_power: Power::Heat,
             brush_size: 2,
             paused: false,
@@ -118,14 +113,15 @@ impl DustApp {
             for x in 0..self.width {
                 let idx = y * self.width + x;
                 let elem = self.world.get(x, y);
+                let def = self.world.definitions.get(&elem).unwrap();
                 let shade = self.world.get_shade(x, y);
-                let base: [u8; 4] = elem.color();
+                let base = self.world.definitions.get(&elem).unwrap().color;
 
-                let color = if elem == Element::Air {
+                let color = if elem == 0 {
                     
                     base
                 } else {
-                    noise_color(base, shade, elem.to_u32())
+                    noise_color(base, shade, elem as u32)
                 };
 
                 let mut final_color =
@@ -472,7 +468,7 @@ fn _ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
                             }
                             Power::Cleaner => {
                                 if (self.world.get(x as usize, y as usize) == self.selected_element) {
-                                    self.world.set(x as usize, y as usize, Element::Air);
+                                    self.world.set(x as usize, y as usize, 0);
                                 }
                             }
                             Power::Push => {
@@ -500,7 +496,7 @@ fn _ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         } else {
             
             let paint_element = if is_secondary {
-                Some(Element::Air)
+                Some(0)
             } else if is_primary {
                 Some(self.selected_element)
             } else {
@@ -521,8 +517,8 @@ fn _ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
                             let ux = x as usize;
                             let uy = y as usize;
 
-                            if self.world.get(ux, uy) == Element::Air
-                                || elem == Element::Air
+                            if self.world.get(ux, uy) == 0
+                                || elem == 0
                             {
                                 self.world.set(ux, uy, elem);
                             }
@@ -634,10 +630,10 @@ impl eframe::App for DustApp {
         ctx.input(|i| {
             
 
-            let elements: Vec<Element> = Element::iter() 
-				.filter(|e| !e.is_hidden() || self.world.discovered_elements.contains(e)) 
-				.collect();
-
+            let elements: Vec<Element> = self.world.definitions.values()
+                .filter(|def| !def.hidden || self.world.discovered_elements.contains(&def.id))
+                .map(|def| def.id)
+                .collect();
             
             let current_idx = elements
                 .iter()
@@ -753,24 +749,27 @@ impl eframe::App for DustApp {
             ui.vertical(|ui| {
                 ui.label("Elements");
                 ui.horizontal_wrapped(|ui| {
-                    let elements: Vec<Element> = Element::iter() 
-					.filter(|e| {
-						let starting_element = !e.is_hidden();
-						let discovered = self.world.discovered_elements.contains(e);
-						let not_secret = !e.is_super_hidden();
-						
-						(starting_element || discovered) && not_secret
-					})
-					.collect();
+                let mut elements: Vec<Element> = self.world.definitions.values()
+                    .filter(|def| {
+                        let starting_element = !def.hidden;
+                        let discovered = self.world.discovered_elements.contains(&def.id);
+                        let not_secret = !def.super_hidden;
+                        
+                        (starting_element || discovered) && not_secret
+                    })
+                    .map(|def| def.id) // Map the definitions back to their u16 IDs
+                    .collect();
 
                     
+                    elements.sort();
 
                     for elem in elements {
+                        let definition = self.world.definitions.get(&elem).unwrap();
                         let color = Color32::from_rgba_unmultiplied(
-                            elem.color()[0],
-                            elem.color()[1],
-                            elem.color()[2],
-                            elem.color()[3],
+                            definition.color[0],
+                            definition.color[1],
+                            definition.color[2],
+                            definition.color[3],
                         );
                         
                         
@@ -780,7 +779,7 @@ impl eframe::App for DustApp {
                             Color32::BLACK
                         };
 
-                        let label = elem.to_string();
+                        let label = definition.name.clone();
                         
                         
                         let mut button = egui::Button::new(
@@ -854,13 +853,13 @@ impl eframe::App for DustApp {
 
                 if let Some(info) = self.world.get_pixel_info(x as usize, y as usize) {
                     ui.group(|ui| {
-                        ui.label(egui::RichText::new(format!("Element: {:?}", info.element)).strong());
+                        ui.label(egui::RichText::new(format!("Element: {:?}", info.name)).strong());
                         ui.label(format!("Temperature: {:.1}°C", info.temp));
                         ui.label(format!("Age: {}", info.age));
                         ui.label(format!("Time Mod: {:.2}x", info.time_mod));
-                        ui.label(format!("Conductivity: {:.2}x", info.conductivity));
+                        ui.label(format!("Thermal Conductivity: {:.2}x", info.thermal_conductivity));
+                        ui.label(format!("Electrical Conductivity: {:.2}x", info.electrical_conductivity));
                         ui.label(format!("Flammability: {:.2}", info.flammability));
-                        ui.label(format!("Corrosion Resistance: {:.2}", info.corrosion_resistance));
 						ui.label(format!("Density: {:.2}", info.density));
 						ui.label(format!("Charge: {:.2}", info.charge));
                         ui.label("Reactions:");
@@ -907,7 +906,7 @@ impl eframe::App for DustApp {
 
 			ui.separator();
 			ui.label("Discovered Elements:");
-			ui.label(format!("{}/{}", self.world.discovered_elements.len(), Element::COUNT - 4));
+			ui.label(format!("{}/{}", self.world.discovered_elements.len(), self.world.definitions.len()));
         });
 
             egui::CentralPanel::default().show(ctx, |ui| {

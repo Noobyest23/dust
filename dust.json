@@ -1,0 +1,813 @@
+[
+  {
+    "name": "Air",
+    "id": 0,
+    "movement": "Gas",
+    "density": 0.0012,
+    "color": [0, 0, 0, 50],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.02,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Stone",
+    "id": 1,
+    "movement": "Static",
+    "density": 2.5,
+    "color": [150, 150, 150, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.3,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "TemperatureAbove": 1200.0 }],
+        "output": [[11, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Water",
+    "id": 2,
+    "movement": "Liquid",
+    "density": 1.0,
+    "color": [40, 100, 200, 200],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.6,
+    "electrical_conductivity": 0.1,
+    "corrosiveness": 0.1,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "TemperatureAbove": 100.0 }],
+        "output": [[4, 1]]
+      },
+      {
+        "conditions": [{ "TemperatureBelow": 0.0 }],
+        "output": [[7, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Sand",
+    "id": 3,
+    "movement": "Powder",
+    "density": 1.6,
+    "color": [230, 200, 130, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.2,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "TemperatureAbove": 1700.0 }],
+        "output": [[32, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Steam",
+    "id": 4,
+    "movement": "Gas",
+    "density": 0.0006,
+    "color": [200, 200, 200, 80],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.1,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "TemperatureBelow": 100.0 }],
+        "output": [[2, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Fire",
+    "id": 5,
+    "movement": "Gas",
+    "density": 0.0005,
+    "color": [255, 80, 0, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.9,
+    "electrical_conductivity": 0.2,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "LifetimeGreater": 60 }],
+        "output": [[6, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Smoke",
+    "id": 6,
+    "movement": "Gas",
+    "density": 0.0008,
+    "color": [80, 80, 80, 128],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.05,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "LifetimeGreater": 120 }],
+        "output": [[0, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Ice",
+    "id": 7,
+    "movement": "Static",
+    "density": 0.92,
+    "color": [180, 230, 255, 200],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.5,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "TemperatureAbove": 0.0 }],
+        "output": [[2, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Copper",
+    "id": 8,
+    "movement": "Static",
+    "density": 8.9,
+    "color": [184, 115, 51, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.95,
+    "electrical_conductivity": 0.95,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [
+          { "NearElement": 2 },
+          { "RandomChance": 0.001 }
+        ],
+        "output": [[9, 1]]
+      },
+      {
+        "conditions": [{ "TemperatureAbove": 1085.0 }],
+        "output": [[11, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Oxidized Copper",
+    "id": 9,
+    "movement": "Static",
+    "density": 6.0,
+    "color": [76, 153, 128, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.4,
+    "electrical_conductivity": 0.2,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Zinc",
+    "id": 10,
+    "movement": "Static",
+    "density": 7.1,
+    "color": [166, 179, 192, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.6,
+    "electrical_conductivity": 0.6,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "TemperatureAbove": 420.0 }],
+        "output": [[11, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Lava",
+    "id": 11,
+    "movement": "Liquid",
+    "density": 2.8,
+    "color": [230, 50, 0, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.8,
+    "electrical_conductivity": 0.1,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "NearElement": 2 }],
+        "output": [[12, 1]]
+      },
+      {
+        "conditions": [{ "TemperatureBelow": 700.0 }],
+        "output": [[1, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Obsidian",
+    "id": 12,
+    "movement": "Static",
+    "density": 2.6,
+    "color": [13, 13, 26, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.3,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Wood",
+    "id": 13,
+    "movement": "Static",
+    "density": 0.7,
+    "color": [128, 89, 51, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.1,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.3,
+    "reactions": [
+      {
+        "conditions": [{ "NearElement": 5 }],
+        "output": [[5, 1]]
+      },
+      {
+        "conditions": [{ "TemperatureAbove": 300.0 }],
+        "output": [[16, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Oil",
+    "id": 14,
+    "movement": "Liquid",
+    "density": 0.8,
+    "color": [26, 26, 13, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.15,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.5,
+    "reactions": [
+      {
+        "conditions": [{ "NearElement": 5 }],
+        "output": [[39, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Ash",
+    "id": 15,
+    "movement": "Powder",
+    "density": 0.5,
+    "color": [102, 102, 102, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.1,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Charcoal",
+    "id": 16,
+    "movement": "Static",
+    "density": 0.4,
+    "color": [38, 38, 38, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.2,
+    "electrical_conductivity": 0.05,
+    "corrosiveness": 0.0,
+    "flammability": 0.1,
+    "reactions": [
+      {
+        "conditions": [{ "TemperatureAbove": 400.0 }],
+        "output": [[5, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Liquid Nitrogen",
+    "id": 17,
+    "movement": "Liquid",
+    "density": 0.8,
+    "color": [204, 230, 255, 153],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.7,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "TemperatureAbove": -196.0 }],
+        "output": [[42, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Cloud",
+    "id": 18,
+    "movement": "Gas",
+    "density": 0.0004,
+    "color": [242, 242, 242, 102],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.04,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "RandomChance": 0.005 }],
+        "output": [[2, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Packed Sand",
+    "id": 19,
+    "movement": "Static",
+    "density": 1.9,
+    "color": [153, 128, 102, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.25,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Dirt",
+    "id": 20,
+    "movement": "Powder",
+    "density": 1.2,
+    "color": [102, 64, 38, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.2,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [
+          { "NearElement": 2 },
+          { "RandomChance": 0.01 }
+        ],
+        "output": [[24, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Iron",
+    "id": 21,
+    "movement": "Static",
+    "density": 7.8,
+    "color": [115, 115, 123, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.75,
+    "electrical_conductivity": 0.7,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [
+          { "NearElement": 2 },
+          { "NearElement": 44 },
+          { "RandomChance": 0.002 }
+        ],
+        "output": [[30, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Acid",
+    "id": 22,
+    "movement": "Liquid",
+    "density": 1.1,
+    "color": [77, 230, 51, 179],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.5,
+    "electrical_conductivity": 0.4,
+    "corrosiveness": 0.9,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [
+          { "NearElement": 1 },
+          { "RandomChance": 0.1 }
+        ],
+        "output": [[0, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Dust",
+    "id": 23,
+    "movement": "Powder",
+    "density": 0.3,
+    "color": [179, 166, 153, 204],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.05,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 1.0,
+    "reactions": [
+      {
+        "conditions": [{ "NearElement": 5 }],
+        "output": [[39, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Plant",
+    "id": 24,
+    "movement": "Static",
+    "density": 0.6,
+    "color": [51, 179, 51, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.1,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.7,
+    "reactions": [
+      {
+        "conditions": [{ "NearElement": 5 }],
+        "output": [[5, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Lamp",
+    "id": 25,
+    "movement": "Static",
+    "density": 2.0,
+    "color": [0, 0, 0, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.4,
+    "electrical_conductivity": 0.8,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "HasChargeAbove": 0.5 }],
+        "output": [[26, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Charged Lamp",
+    "id": 26,
+    "movement": "Static",
+    "density": 2.0,
+    "color": [255, 255, 0, 255],
+    "hidden": true,
+    "super_hidden": true,
+    "thermal_conductivity": 0.5,
+    "electrical_conductivity": 0.8,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    
+    "reactions": [
+      {
+        "conditions": [{ "HasChargeBelow": 0.5 }],
+        "output": [[25, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Battery",
+    "id": 27,
+    "movement": "Static",
+    "density": 3.0,
+    "color": [90, 90, 20, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.3,
+    "electrical_conductivity": 1.0,
+    "corrosiveness": 0.1,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Wire",
+    "id": 28,
+    "movement": "Static",
+    "density": 4.5,
+    "color": [140, 80, 80, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.7,
+    "electrical_conductivity": 0.99,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Electricity",
+    "id": 29,
+    "movement": "Gas",
+    "density": 0.0,
+    "color": [255, 255, 0, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.1,
+    "electrical_conductivity": 1.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "LifetimeGreater": 5 }],
+        "output": [[0, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Rust",
+    "id": 30,
+    "movement": "Powder",
+    "density": 5.2,
+    "color": [179, 51, 51, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.3,
+    "electrical_conductivity": 0.05,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Turbine",
+    "id": 31,
+    "movement": "Static",
+    "density": 6.5,
+    "color": [255, 255, 255, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.5,
+    "electrical_conductivity": 0.8,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Glass",
+    "id": 32,
+    "movement": "Static",
+    "density": 2.5,
+    "color": [200, 200, 255, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.1,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Steel",
+    "id": 33,
+    "movement": "Static",
+    "density": 7.85,
+    "color": [150, 150, 150, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.6,
+    "electrical_conductivity": 0.75,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Brass",
+    "id": 34,
+    "movement": "Static",
+    "density": 8.5,
+    "color": [204, 153, 102, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.7,
+    "electrical_conductivity": 0.8,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Hydrogen",
+    "id": 35,
+    "movement": "Gas",
+    "density": 0.0001,
+    "color": [255, 255, 255, 128],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.18,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.8,
+    "reactions": [
+      {
+        "conditions": [
+          { "NearElement": 5 },
+          { "NearElement": 44 }
+        ],
+        "output": [[39, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Wet Concrete",
+    "id": 36,
+    "movement": "Liquid",
+    "density": 2.2,
+    "color": [128, 128, 128, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.4,
+    "electrical_conductivity": 0.05,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "LifetimeGreater": 300 }],
+        "output": [[37, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Concrete",
+    "id": 37,
+    "movement": "Static",
+    "density": 2.4,
+    "color": [128, 128, 128, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.45,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Fungus",
+    "id": 38,
+    "movement": "Static",
+    "density": 0.5,
+    "color": [102, 204, 102, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.1,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.2,
+    "flammability": 0.4,
+    "reactions": [
+      {
+        "conditions": [
+          { "NearElementType": "Powder" },
+          { "RandomChance": 0.05 }
+        ],
+        "output": [[38, 2]]
+      }
+    ]
+  },
+  {
+    "name": "Explosion",
+    "id": 39,
+    "movement": "Gas",
+    "density": 0.0,
+    "color": [255, 180, 0, 255],
+    "hidden": true,
+    "super_hidden": true,
+    "thermal_conductivity": 1.0,
+    "electrical_conductivity": 0.5,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "LifetimeGreater": 10 }],
+        "output": [[5, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Gold",
+    "id": 41,
+    "movement": "Static",
+    "density": 19.3,
+    "color": [255, 215, 0, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.9,
+    "electrical_conductivity": 0.98,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Snow",
+    "id": 42,
+    "movement": "Powder",
+    "density": 0.3,
+    "color": [255, 255, 255, 255],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.1,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": [
+      {
+        "conditions": [{ "TemperatureAbove": 0.0 }],
+        "output": [[2, 1]]
+      }
+    ]
+  },
+  {
+    "name": "Nitrogen",
+    "id": 43,
+    "movement": "Gas",
+    "density": 0.0011,
+    "color": [25, 51, 128, 26],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.02,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Ammonia",
+    "id": 44,
+    "movement": "Gas",
+    "density": 0.0007,
+    "color": [179, 204, 230, 51],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.025,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.1,
+    "flammability": 0.0,
+    "reactions": []
+  },
+  {
+    "name": "Oxygen",
+    "id": 45,
+    "movement": "Gas",
+    "density": 0.0029,
+    "color": [128, 179, 255, 26],
+    "hidden": false,
+    "super_hidden": false,
+    "thermal_conductivity": 0.02,
+    "electrical_conductivity": 0.0,
+    "corrosiveness": 0.0,
+    "flammability": 0.2,
+    "reactions": [
+      {
+        "conditions": [{ "NearElement": 16 }, { "TemperatureAbove": 300.0 }],
+        "output": [[5, 1]]
+      }
+    ]
+  }
+]
